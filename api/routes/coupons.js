@@ -1,6 +1,5 @@
 const express = require('express');
 const router = express.Router();
-
 const uuid = require('uuid/v4');
 const MongoClient = require('mongodb').MongoClient;
 
@@ -12,7 +11,6 @@ client.connect(function (err) {
     console.log("Connected successfully to server");
     const db = client.db(dbName);
     create(db, function () {
-        //client.close();
     });
 });
 
@@ -23,7 +21,6 @@ function create(db, callback) {
             "max": 5000
         },
         function (err, results) {
-            console.log("Collection created.");
             callback();
         }
     );
