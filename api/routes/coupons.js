@@ -6,12 +6,16 @@ const MongoClient = require('mongodb').MongoClient;
 const url = 'mongodb://localhost:27017';
 const dbName = 'myproject';
 const client = new MongoClient(url);
+var db;
 
 client.connect(function (err) {
-    console.log("Connected successfully to server");
-    const db = client.db(dbName);
-    create(db, function () {
-    });
+    if (err == null) {
+        console.log("Connected successfully to server");
+        db = client.db(dbName);
+        create(db, function () {});
+    } else {
+        console.log(err.message);
+    }
 });
 
 function create(db, callback) {
@@ -21,7 +25,11 @@ function create(db, callback) {
             "max": 5000
         },
         function (err, results) {
-            callback();
+            if (err == null) {
+                callback();
+            } else {
+                console.log(err.message);
+            }
         }
     );
 };
@@ -30,34 +38,35 @@ function create(db, callback) {
 // api/coupons/generate/{number}
 router.post('/generate/:number', (req, res, next) => {
     let number = req.params.number;
-    
+
     //checking for invalid number of coupons
     if (number < 1) {
-        res.status(200).json({
+        res.status(422).json({
             message: "Provide valid number."
         });
     } else if (number > 500) {
-        res.status(200).json({
+        res.status(422).json({
             message: "maximum 500 coupon can be generated."
         });
     } else {
         let listUuid = [];
-        while(number){
-            let uid = uuid(1000+number);
-            listUuid.push(uid);
+        while (number > 0) {
+            let uid = uuid(1000 + number);
+            listUuid.push({
+                "uuid": uid
+            });
             number--;
         }
         console.log(listUuid);
-        const db = client.db(dbName);
-        listUuid.forEach(element => {
-            db.collection('coupons').insertOne({
-                uuid: element
-            }, function (err, r) {
-                
-            });
+        db = client.db(dbName);
+
+        db.collection('coupons').insertMany(listUuid, function (err, r) {
+            if (err != null) {
+                console.log(err.message);
+            }
         });
         //client.close();
-        res.status(200).send(JSON.stringify(listUuid));
+        res.status(201).send(JSON.stringify(listUuid));
     }
 });
 
@@ -65,37 +74,35 @@ router.post('/generate/:number', (req, res, next) => {
 // api/coupons/redeem/{code}
 router.post('/redeem/:code', (req, res, next) => {
     const code = req.params.code;
-    const db = client.db(dbName);
+    db = client.db(dbName);
 
     //Checking for invalid code
     if (code < 1) {
-        res.status(200).json({
+        res.status(422).json({
             message: "invalid coupon."
         });
     } else {
         db.collection('coupons').findOne({
             uuid: code
         }, function (err, r) {
-            if(r != null){
+            if (r != null && err == null) {
                 db.collection('coupons').deleteOne({
                     uuid: code
-                }, function (err, r) {                    
+                }, function (err, r) {
                     console.log(r.deletedCount);
-                    if(r.deletedCount > 0){
+                    if (r.deletedCount > 0) {
                         res.status(200).json({
                             message: "Redeemed"
-                        }); 
-                    }
-                    else{
-                        res.status(200).json({
+                        });
+                    } else {
+                        res.status(500).json({
                             message: "Error Redeeming"
-                        }); 
+                        });
                     }
                     console.log(err);
                 });
-            }
-            else{
-                res.status(200).json({
+            } else {
+                res.status(404).json({
                     message: "Coupon not found..."
                 });
             }
@@ -105,11 +112,11 @@ router.post('/redeem/:code', (req, res, next) => {
 
 router.post('/find/:code', (req, res, next) => {
     const code = req.params.code;
-    const db = client.db(dbName);
-    
+    db = client.db(dbName);
+
     //Checking for invalid code
     if (code < 1) {
-        res.status(200).json({
+        res.status(422).json({
             message: "invalid coupon."
         });
     } else {
@@ -117,15 +124,16 @@ router.post('/find/:code', (req, res, next) => {
             uuid: code
         }, function (err, r) {
             console.log(r);
-            if(r != null){
+            if (r != null && err == null) {
                 res.status(200).json({
                     message: "found!!!"
-                });        
-            }else{
-                res.status(200).json({
+                });
+            } else {
+                res.status(404).json({
                     message: "notFound!!!"
                 });
-            }        
+                console.log(err.message);
+            }
         });
     }
 });
