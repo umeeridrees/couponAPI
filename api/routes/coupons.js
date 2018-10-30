@@ -53,7 +53,8 @@ router.post('/generate/:number', (req, res, next) => {
         while (number > 0) {
             let uid = uuid(1000 + number);
             listUuid.push({
-                "uuid": uid
+                "uuid": uid,
+                "status": 0
             });
             number--;
         }
@@ -77,7 +78,7 @@ router.post('/redeem/:code', (req, res, next) => {
     db = client.db(dbName);
 
     //Checking for invalid code
-    if (code < 1) {
+    if (code.length < 36) {
         res.status(422).json({
             message: "invalid coupon."
         });
@@ -86,21 +87,34 @@ router.post('/redeem/:code', (req, res, next) => {
             uuid: code
         }, function (err, r) {
             if (r != null && err == null) {
-                db.collection('coupons').deleteOne({
-                    uuid: code
-                }, function (err, r) {
-                    console.log(r.deletedCount);
-                    if (r.deletedCount > 0) {
-                        res.status(200).json({
-                            message: "Redeemed"
+                if (r.status == 0) {
+                    db.collection('coupons').updateOne({
+                            uuid: code
+                        }, {
+                            $set: {
+                                "status": 1
+                            }
+                        },
+                        function (err, r) {
+                            if (err == null) {
+                                if (r.modifiedCount > 0) {
+                                    res.status(200).json({
+                                        message: "Redeemed"
+                                    });
+                                } else {
+                                    res.status(500).json({
+                                        message: "Error Redeeming"
+                                    });
+                                }
+                            } else {
+                                console.log(err);
+                            }
                         });
-                    } else {
-                        res.status(500).json({
-                            message: "Error Redeeming"
-                        });
-                    }
-                    console.log(err);
-                });
+                } else if (r.status == 1) {
+                    res.status(422).json({
+                        message: "Coupon already used."
+                    });
+                }
             } else {
                 res.status(404).json({
                     message: "Coupon not found..."
@@ -115,7 +129,7 @@ router.post('/find/:code', (req, res, next) => {
     db = client.db(dbName);
 
     //Checking for invalid code
-    if (code < 1) {
+    if (code.length < 36) {
         res.status(422).json({
             message: "invalid coupon."
         });
