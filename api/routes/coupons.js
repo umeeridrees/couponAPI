@@ -125,27 +125,25 @@ router.post('/generate/:number', (req, res, next) => {
         });
     } else {
         console.log("\n\n" + numberToBeGenerated + ' coupons request recieved.');
-
         let uList = [];
-        generateRecursive(uList, numberToBeGenerated, res, function(err, result){
-            if(!err){
-                res.status(201).send({
-                    result
-                });
+        generateRecursive(uList, numberToBeGenerated, res, function (err, result) {
+            if (!err) {
+                res.status(201).send(result);
                 console.log('\nresponse sent.\n\n');
-            }else{
+            } else {
                 res.status(201).send({
-                    err
+                    "error": err.message
                 });
             }
         });
     }
 });
 
-
 function generateRecursive(uList, numberToBeGenerated, res, callback) {
     if (numberToBeGenerated < 1) {
-        callback(null, {"message": "Coupons generated successfully"});
+        callback(null, {
+            "message": "Coupons generated successfully"
+        });
         return;
     }
     console.log("\nLeft to generate -> " + numberToBeGenerated);
@@ -173,9 +171,9 @@ function generateRecursive(uList, numberToBeGenerated, res, callback) {
 
 
     db.collection('coupons').insertMany(uList, function (err, r) {
-        if (err != null) {
+        if (err) {
             console.log(err.message);
-            callback(new Error(error.message), null);
+            callback(err, null);
         } else {
             console.log(uList.length + ' inserted.\n');
             uList = [];
