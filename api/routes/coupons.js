@@ -34,48 +34,10 @@ function create(db, callback) {
     );
 };
 
-// endpoint to generate coupons
-// api/coupons/generate/{number}
-router.post('/generate/:number', (req, res, next) => {
-    let number = req.params.number;
-
-    //checking for invalid number of coupons
-    if (number < 1) {
-        res.status(422).json({
-            message: "Provide valid number."
-        });
-    } else if (number > 500) {
-        res.status(422).json({
-            message: "maximum 500 coupon can be generated."
-        });
-    } else {
-        let listUuid = [];
-        while (number > 0) {
-            let uid = uuid(1000 + number);
-            listUuid.push({
-                "uuid": uid,
-                "status": 0
-            });
-            number--;
-        }
-        console.log(listUuid);
-        db = client.db(dbName);
-
-        db.collection('coupons').insertMany(listUuid, function (err, r) {
-            if (err != null) {
-                console.log(err.message);
-            }
-        });
-        //client.close();
-        res.status(201).send(JSON.stringify(listUuid));
-    }
-});
-
 // endpoint to redeem coupon
 // api/coupons/redeem/{code}
 router.post('/redeem/:code', (req, res, next) => {
     const code = req.params.code;
-    db = client.db(dbName);
 
     //Checking for invalid code
     if (code.length < 36) {
@@ -126,7 +88,6 @@ router.post('/redeem/:code', (req, res, next) => {
 
 router.post('/find/:code', (req, res, next) => {
     const code = req.params.code;
-    db = client.db(dbName);
 
     //Checking for invalid code
     if (code.length < 36) {
@@ -151,5 +112,112 @@ router.post('/find/:code', (req, res, next) => {
         });
     }
 });
+
+var tasks = [];
+var num = 0;
+// endpoint to generate coupons
+// api/coupons/generate/{number}
+router.post('/generate/:number', (req, res, next) => {
+    let numberToBeGenerated = req.params.number;
+    //checking for invalid number of coupons
+    if (!Number.isInteger(numberToBeGenerated) && numberToBeGenerated < 1) {
+        res.status(422).json({
+            message: "Provide valid number."
+        });
+    } else {
+        console.log("\n\n" + numberToBeGenerated + ' coupons request recieved.');
+        /* let uList = [];
+            generateRecursive(uList, numberToBeGenerated, res, function (err, result) {
+                if (!err) {
+                    res.status(201).send(result);
+                    console.log('\nresponse sent.\n\n');
+                } else {
+                    res.status(201).send({
+                        "error": err.message
+                    });
+                }
+        }); */
+        num = numberToBeGenerated;
+        for (let i = 0; i < numberToBeGenerated; i++) {
+            tasks.push(printNumber100Times(function(){
+                console.log("done.");
+            }));
+        }
+        executeSeries(tasks);
+    }
+});
+
+function printNumber100Times(callback) {
+    let num = Math.floor(Math.random() * Math.floor(10));
+    for (let i = 0; i < 1000; i++) {
+        console.log(num);
+    }
+    callback();
+}
+
+function executeSeries(tasks, callback){
+    execute(tasks.shift(), callback);
+}
+
+function executeSingle(task, callback){
+    task();
+    callback();
+}
+
+function execute(task, callback) {
+    if (task) {
+        executeSingle(task, function(){
+            return execute(tasks.shift(), callback);
+        });
+    } else {
+        callback();
+    }
+}
+
+
+function generateRecursive(uList, numberToBeGenerated, res, callback) {
+    if (numberToBeGenerated < 1) {
+        callback(null, {
+            "message": "Coupons generated successfully"
+        });
+        return;
+    }
+    console.log("\nLeft to generate -> " + numberToBeGenerated);
+    if (numberToBeGenerated < 1000) {
+        for (let i = 1; i <= numberToBeGenerated; i++) {
+            let uid = uuid(1000 + numberToBeGenerated);
+            uList.push({
+                "uuid": uid,
+                "status": 0
+            });
+        }
+        numberToBeGenerated -= numberToBeGenerated;
+    } else {
+        for (let i = 1; i <= 1000; i++) {
+            let uid = uuid(1000 + numberToBeGenerated);
+            uList.push({
+                "uuid": uid,
+                "status": 0
+            });
+        }
+        numberToBeGenerated -= 1000;
+    }
+    console.log(uList.length + " generated.");
+
+
+
+    db.collection('coupons').insertMany(uList, function (err, r) {
+        if (err) {
+            console.log(err.message);
+            callback(err, null);
+        } else {
+            console.log(uList.length + ' inserted.\n');
+            uList = [];
+            setTimeout(function () {
+                generateRecursive(uList, numberToBeGenerated, res, callback);
+            }, 0);
+        }
+    });
+}
 
 module.exports = router;
