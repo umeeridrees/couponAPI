@@ -113,8 +113,6 @@ router.post('/find/:code', (req, res, next) => {
     }
 });
 
-var tasks = [];
-var num = 0;
 // endpoint to generate coupons
 // api/coupons/generate/{number}
 router.post('/generate/:number', (req, res, next) => {
@@ -126,98 +124,52 @@ router.post('/generate/:number', (req, res, next) => {
         });
     } else {
         console.log("\n\n" + numberToBeGenerated + ' coupons request recieved.');
-        /* let uList = [];
-            generateRecursive(uList, numberToBeGenerated, res, function (err, result) {
-                if (!err) {
-                    res.status(201).send(result);
-                    console.log('\nresponse sent.\n\n');
-                } else {
-                    res.status(201).send({
-                        "error": err.message
-                    });
-                }
-        }); */
-        num = numberToBeGenerated;
+
+        let tasks = [];
+
         for (let i = 0; i < numberToBeGenerated; i++) {
-            tasks.push(printNumber100Times(function(){
-                console.log("done.");
-            }));
+            tasks.push(generateOneBatch);
         }
-        executeSeries(tasks);
+        console.log(tasks.length + " functions on stack.");
+        num = tasks.length;
+        executeSeries(tasks, function () {
+            res.status(201).json({
+                message: "All done."
+            });
+        })
     }
 });
 
-function printNumber100Times(callback) {
-    let num = Math.floor(Math.random() * Math.floor(10));
-    for (let i = 0; i < 1000; i++) {
-        console.log(num);
-    }
-    callback();
-}
+function executeSeries(tasks, callback) {
+    execute(tasks.shift(), tasks.length, callback);
 
-function executeSeries(tasks, callback){
-    execute(tasks.shift(), callback);
-}
-
-function executeSingle(task, callback){
-    task();
-    callback();
-}
-
-function execute(task, callback) {
-    if (task) {
-        executeSingle(task, function(){
-            return execute(tasks.shift(), callback);
-        });
-    } else {
-        callback();
-    }
-}
-
-
-function generateRecursive(uList, numberToBeGenerated, res, callback) {
-    if (numberToBeGenerated < 1) {
-        callback(null, {
-            "message": "Coupons generated successfully"
-        });
-        return;
-    }
-    console.log("\nLeft to generate -> " + numberToBeGenerated);
-    if (numberToBeGenerated < 1000) {
-        for (let i = 1; i <= numberToBeGenerated; i++) {
-            let uid = uuid(1000 + numberToBeGenerated);
-            uList.push({
-                "uuid": uid,
-                "status": 0
-            });
-        }
-        numberToBeGenerated -= numberToBeGenerated;
-    } else {
-        for (let i = 1; i <= 1000; i++) {
-            let uid = uuid(1000 + numberToBeGenerated);
-            uList.push({
-                "uuid": uid,
-                "status": 0
-            });
-        }
-        numberToBeGenerated -= 1000;
-    }
-    console.log(uList.length + " generated.");
-
-
-
-    db.collection('coupons').insertMany(uList, function (err, r) {
-        if (err) {
-            console.log(err.message);
-            callback(err, null);
-        } else {
-            console.log(uList.length + ' inserted.\n');
-            uList = [];
+    function execute(task, num, callback) {
+        if (task) {
             setTimeout(function () {
-                generateRecursive(uList, numberToBeGenerated, res, callback);
+                executeSingle(task, num, function () {
+                    return execute(tasks.shift(), --num, callback);
+                });
             }, 0);
+        } else {
+            callback();
+            console.log("Done");
         }
-    });
+    }
 }
+
+function executeSingle(task, num, callback) {
+    task(num);
+    callback();
+}
+
+function generateOneBatch(i) {
+    console.log(i);
+}
+
+
+
+
+
+
 
 module.exports = router;
